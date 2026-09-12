@@ -207,7 +207,7 @@ export default function InstallationsPage() {
     },
   });
 
-  // NEW: Optimistic delete mutation
+  // Optimistic delete mutation
   const deleteInstallationMutation = useMutation({
     mutationFn: (id: string) => installationService.deleteInstallation(id),
     onMutate: async (id) => {
@@ -221,7 +221,6 @@ export default function InstallationsPage() {
         dateFilter,
       ]);
 
-      // Optimistically remove from list
       queryClient.setQueryData(
         ["installations", page, siteFilter, statusFilter, dateFilter],
         (old: any) => {
@@ -286,7 +285,6 @@ export default function InstallationsPage() {
     [updateStatusMutation],
   );
 
-  // NEW: Handle delete click
   const handleDeleteClick = useCallback((inst: any) => {
     const itemNames = inst.items
       ?.map((i: any) => i.inventoryId?.name || "Unknown")
@@ -297,7 +295,6 @@ export default function InstallationsPage() {
     });
   }, []);
 
-  // NEW: Confirm delete
   const confirmDelete = useCallback(() => {
     if (deleteTarget) {
       deleteInstallationMutation.mutate(deleteTarget.id);
@@ -390,16 +387,21 @@ export default function InstallationsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="space-y-4 sm:space-y-6 px-2 sm:px-0 max-w-full overflow-x-hidden">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Installations</h1>
-            <p className="text-gray-500">Track and manage all installations</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+              Installations
+            </h1>
+            <p className="text-sm sm:text-base text-gray-500">
+              Track and manage all installations
+            </p>
           </div>
           {isAdmin && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center space-x-2 transition-colors"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center justify-center space-x-2 transition-colors w-full sm:w-auto"
             >
               <Plus className="w-5 h-5" />
               <span>New Installation</span>
@@ -407,14 +409,15 @@ export default function InstallationsPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <select
             value={siteFilter}
             onChange={(e) => {
               setSiteFilter(e.target.value);
               setPage(1);
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
           >
             <option value="">All Sites</option>
             {sites?.sites?.map((site: any) => (
@@ -430,7 +433,7 @@ export default function InstallationsPage() {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
           >
             <option value="">All Status</option>
             <option value="scheduled">Scheduled</option>
@@ -445,7 +448,7 @@ export default function InstallationsPage() {
               setDateFilter(e.target.value);
               setPage(1);
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
           />
 
           <button
@@ -455,13 +458,14 @@ export default function InstallationsPage() {
               setDateFilter("");
               setPage(1);
             }}
-            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm sm:text-base"
           >
             Clear Filters
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden relative">
+        {/* Desktop Table (md and up) */}
+        <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden relative">
           {isFetching && (
             <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-600 animate-pulse" />
           )}
@@ -600,12 +604,12 @@ export default function InstallationsPage() {
           </div>
 
           {data?.pagination && data.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t">
-              <div className="text-sm text-gray-500">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t">
+              <div className="text-sm text-gray-500 text-center sm:text-left">
                 Showing page {data.pagination.page} of{" "}
                 {data.pagination.totalPages}
               </div>
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 justify-center sm:justify-end">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
@@ -626,14 +630,191 @@ export default function InstallationsPage() {
             </div>
           )}
         </div>
+
+        {/* Mobile Card List (below md) - Fits screen width */}
+        <div className="md:hidden space-y-3 relative w-full">
+          {isFetching && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-600 animate-pulse rounded" />
+          )}
+          {data?.installations?.length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500 text-sm">
+              No installations found. Create a new installation to get started.
+            </div>
+          ) : (
+            data?.installations?.map((inst: any) => {
+              const totalQty =
+                inst.items && inst.items.length > 0
+                  ? inst.items.reduce(
+                      (sum: number, item: any) => sum + (item.quantity || 0),
+                      0,
+                    )
+                  : 0;
+
+              return (
+                <div
+                  key={inst._id}
+                  className={`bg-white rounded-lg shadow p-3 space-y-2.5 w-full overflow-hidden ${inst._optimistic ? "opacity-60" : ""} ${inst._updating ? "opacity-60" : ""}`}
+                >
+                  {/* Header: status + date + total qty */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      {getStatusBadge(inst.status)}
+                      <p className="text-xs text-gray-500 mt-1">
+                        {inst.date
+                          ? format(new Date(inst.date), "MMM dd, yyyy")
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">
+                        Total Qty
+                      </p>
+                      <p className="text-base font-semibold text-gray-900">
+                        {totalQty}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Site + Installed By in a compact grid */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">
+                        Site
+                      </p>
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {inst.siteId?.name || "N/A"}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">
+                        Installed By
+                      </p>
+                      <p className="text-sm text-gray-900 truncate">
+                        {inst.installedBy?.username || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Items */}
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
+                      Items
+                    </p>
+                    {inst.items && inst.items.length > 0 ? (
+                      <div className="space-y-1">
+                        {inst.items.map((item: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between gap-2 text-xs bg-gray-50 rounded px-2 py-1.5"
+                          >
+                            <span className="text-gray-800 truncate flex-1 min-w-0">
+                              {item.inventoryId?.name || "N/A"}
+                            </span>
+                            <span className="text-gray-600 flex-shrink-0 font-medium">
+                              × {item.quantity}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">No items</span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  {(isAdmin && inst.status === "scheduled") ||
+                  (isAdmin && !inst._optimistic) ||
+                  (!isAdmin &&
+                    (inst.status === "completed" ||
+                      inst.status === "cancelled")) ? (
+                    <div className="flex flex-wrap items-center justify-end gap-1.5 pt-2 border-t">
+                      {isAdmin &&
+                        inst.status === "scheduled" &&
+                        !inst._updating && (
+                          <>
+                            <button
+                              onClick={() =>
+                                handleStatusUpdate(inst._id, "completed")
+                              }
+                              className="flex items-center gap-1 text-[11px] bg-green-50 text-green-700 px-2.5 py-1.5 rounded-md hover:bg-green-100 transition-colors"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Complete
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleStatusUpdate(inst._id, "cancelled")
+                              }
+                              className="flex items-center gap-1 text-[11px] bg-red-50 text-red-700 px-2.5 py-1.5 rounded-md hover:bg-red-100 transition-colors"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                      {isAdmin && !inst._optimistic && (
+                        <button
+                          onClick={() => handleDeleteClick(inst)}
+                          className="flex items-center gap-1 text-[11px] bg-red-50 text-red-700 px-2.5 py-1.5 rounded-md hover:bg-red-100 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </button>
+                      )}
+                      {inst.status === "completed" && !isAdmin && (
+                        <span className="text-[11px] text-gray-500">
+                          Completed
+                        </span>
+                      )}
+                      {inst.status === "cancelled" && !isAdmin && (
+                        <span className="text-[11px] text-gray-500">
+                          Cancelled
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })
+          )}
+
+          {/* Mobile Pagination */}
+          {data?.pagination && data.pagination.totalPages > 1 && (
+            <div className="bg-white rounded-lg shadow px-3 py-3 flex flex-col gap-2 w-full">
+              <div className="text-xs text-gray-500 text-center">
+                Page {data.pagination.page} of {data.pagination.totalPages}
+              </div>
+              <div className="flex space-x-2 justify-center">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1.5 border rounded-md disabled:opacity-50 hover:bg-gray-50 transition-colors text-xs"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() =>
+                    setPage((p) => Math.min(data.pagination.totalPages, p + 1))
+                  }
+                  disabled={page === data.pagination.totalPages}
+                  className="px-3 py-1.5 border rounded-md disabled:opacity-50 hover:bg-gray-50 transition-colors text-xs"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* New Installation Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-semibold">New Installation</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-lg sm:rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
+              <h2 className="text-lg sm:text-xl font-semibold">
+                New Installation
+              </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -641,7 +822,7 @@ export default function InstallationsPage() {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Site *
@@ -652,7 +833,7 @@ export default function InstallationsPage() {
                     setSelectedSite(e.target.value);
                     setItems([{ inventoryId: "", quantity: 1 }]);
                   }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
                   required
                 >
                   <option value="">Select Site</option>
@@ -681,14 +862,17 @@ export default function InstallationsPage() {
                 </div>
                 <div className="space-y-3">
                   {items.map((item, index) => (
-                    <div key={index} className="flex gap-2 items-start">
-                      <div className="flex-1">
+                    <div
+                      key={index}
+                      className="flex flex-col gap-2 bg-gray-50 rounded-md p-2 sm:flex-row sm:items-start sm:bg-transparent sm:p-0"
+                    >
+                      <div className="flex-1 min-w-0">
                         <select
                           value={item.inventoryId}
                           onChange={(e) =>
                             updateItem(index, "inventoryId", e.target.value)
                           }
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base bg-white"
                           disabled={!selectedSite || isLoadingInventory}
                           required
                         >
@@ -713,30 +897,32 @@ export default function InstallationsPage() {
                           )}
                         </select>
                       </div>
-                      <div className="w-20 flex-shrink-0">
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateItem(
-                              index,
-                              "quantity",
-                              parseInt(e.target.value) || 1,
-                            )
-                          }
-                          className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          min="1"
-                          required
-                        />
+                      <div className="flex gap-2 items-center">
+                        <div className="w-20 flex-shrink-0">
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              updateItem(
+                                index,
+                                "quantity",
+                                parseInt(e.target.value) || 1,
+                              )
+                            }
+                            className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base bg-white"
+                            min="1"
+                            required
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeItemRow(index)}
+                          className="p-2 text-red-500 hover:text-red-700 flex-shrink-0 transition-colors"
+                          title="Remove item"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeItemRow(index)}
-                        className="p-2 text-red-500 hover:text-red-700 flex-shrink-0 transition-colors"
-                        title="Remove item"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -758,7 +944,7 @@ export default function InstallationsPage() {
                   type="date"
                   value={scheduledDate}
                   onChange={(e) => setScheduledDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Leave empty to install immediately
@@ -772,17 +958,17 @@ export default function InstallationsPage() {
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
                   rows={3}
                   placeholder="Add any notes about this installation"
                 />
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto"
                 >
                   Cancel
                 </button>
@@ -794,7 +980,7 @@ export default function InstallationsPage() {
                     items.some((item) => !item.inventoryId) ||
                     items.some((item) => item.quantity < 1)
                   }
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors w-full sm:w-auto"
                 >
                   {createInstallationMutation.isPending
                     ? "Creating..."
@@ -808,9 +994,9 @@ export default function InstallationsPage() {
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-lg sm:rounded-lg max-w-md w-full">
+            <div className="p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
                   <AlertTriangle className="w-6 h-6 text-red-600" />
@@ -825,7 +1011,7 @@ export default function InstallationsPage() {
                 </div>
               </div>
 
-              <p className="text-sm text-gray-700 mb-4">
+              <p className="text-sm text-gray-700 mb-4 break-words">
                 Are you sure you want to delete{" "}
                 <span className="font-semibold">{deleteTarget.name}</span>?
               </p>
@@ -837,12 +1023,12 @@ export default function InstallationsPage() {
                 </p>
               </div>
 
-              <div className="flex justify-end space-x-3">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setDeleteTarget(null)}
                   disabled={deleteInstallationMutation.isPending}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 w-full sm:w-auto"
                 >
                   Cancel
                 </button>
@@ -850,7 +1036,7 @@ export default function InstallationsPage() {
                   type="button"
                   onClick={confirmDelete}
                   disabled={deleteInstallationMutation.isPending}
-                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
                   {deleteInstallationMutation.isPending ? (
                     <>
