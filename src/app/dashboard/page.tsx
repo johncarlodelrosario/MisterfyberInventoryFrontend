@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Building2,
   Package,
   CalendarCheck,
   Wallet,
-  TrendingUp,
   ArrowUpRight,
-  ArrowDownRight,
   RefreshCw,
 } from "lucide-react";
 import MainLayout from "@/components/layout/MainLayout";
@@ -36,7 +34,6 @@ function BarChart({
         preserveAspectRatio="none"
         className="w-full h-full"
       >
-        {/* Grid lines */}
         {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
           <line
             key={ratio}
@@ -49,7 +46,6 @@ function BarChart({
           />
         ))}
 
-        {/* Bars */}
         {data.map((item, i) => {
           const barHeight = (item.value / maxValue) * (height - 30);
           const x = i * barWidth + barWidth * 0.15;
@@ -84,7 +80,6 @@ function BarChart({
         })}
       </svg>
 
-      {/* X-axis labels */}
       <div className="flex justify-around mt-1">
         {data.map((item, i) => (
           <span
@@ -148,7 +143,6 @@ function DonutChart({
               strokeDashoffset={-currentOffset}
               strokeLinecap="round"
               transform="rotate(-90 50 50)"
-              className="transition-all duration-500"
             />
           );
         })}
@@ -228,68 +222,59 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, [router]);
 
-  const fetchDashboardData = async (isRefresh = false) => {
+  const fetchDashboardData = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
       setError("");
 
-      // Fetch sites
-      const sitesData = await siteService.getSites(1, 100);
+      const today = new Date().toISOString().split("T")[0];
+
+      // ── Run ALL requests in parallel (huge speed boost) ──
+      const [sitesData, inventoryData, allInstallationsData] =
+        await Promise.all([
+          siteService.getSites(1, 100),
+          inventoryService.getInventory({ limit: 100 }),
+          installationService.getInstallations({ limit: 100 }),
+        ]);
+
       const sites = sitesData.sites || [];
-      const sitesCount = sites.length;
-
-      // Fetch inventory
-      const inventoryData = await inventoryService.getInventory({ limit: 100 });
       const inventoryItemsData = inventoryData.inventory || [];
-      const inventoryCount = inventoryItemsData.length;
+      const allInstallations = allInstallationsData.installations || [];
 
-      // Calculate total value and low stock
+      // ── Inventory: total value + low stock (single pass) ──
       let totalValue = 0;
       let lowStockCount = 0;
-      inventoryItemsData.forEach((item: any) => {
+      for (const item of inventoryItemsData) {
         totalValue += item.totalValue || 0;
         if (item.sitesData) {
-          item.sitesData.forEach((site: any) => {
+          for (const site of item.sitesData) {
             if (site.quantity > 0 && site.quantity <= (site.minQuantity || 0)) {
               lowStockCount++;
             }
-          });
+          }
         }
-      });
+      }
 
-      // Fetch today's installations
-      const today = new Date().toISOString().split("T")[0];
-      const todayData = await installationService.getInstallations({
-        date: today,
-        limit: 100,
-      });
-      const todayInstallations = todayData.installations || [];
-      const todayCount = todayInstallations.length;
+      // ── Installations: status + today counts (single pass) ──
+      let completedCount = 0;
+      let scheduledCount = 0;
+      let cancelledCount = 0;
+      let todayCount = 0;
+      for (const inst of allInstallations) {
+        if (inst.status === "completed") completedCount++;
+        else if (inst.status === "scheduled") scheduledCount++;
+        else if (inst.status === "cancelled") cancelledCount++;
 
-      // Get all installations
-      const allData = await installationService.getInstallations({
-        limit: 100,
-      });
-      const allInstallations = allData.installations || [];
-
-      // Status counts
-      const completedCount = allInstallations.filter(
-        (i: any) => i.status === "completed",
-      ).length;
-      const scheduledCount = allInstallations.filter(
-        (i: any) => i.status === "scheduled",
-      ).length;
-      const cancelledCount = allInstallations.filter(
-        (i: any) => i.status === "cancelled",
-      ).length;
+        if (inst.date && inst.date.split("T")[0] === today) todayCount++;
+      }
 
       setStats({
-        sites: sitesCount,
-        inventory: inventoryCount,
+        sites: sites.length,
+        inventory: inventoryItemsData.length,
         installations: allInstallations.length,
         todayInstallations: todayCount,
-        totalValue: totalValue,
+        totalValue,
         lowStockItems: lowStockCount,
         completedInstallations: completedCount,
         scheduledInstallations: scheduledCount,
@@ -300,19 +285,23 @@ export default function DashboardPage() {
       setSitesList(sites);
       setRecentInstallations(allInstallations.slice(0, 6));
 
-      // Build weekly chart data
+      // ── Build weekly chart data in one pass ──
       const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const countsByDate: Record<string, number> = {};
+      for (const inst of allInstallations) {
+        if (!inst.date) continue;
+        const d = inst.date.split("T")[0];
+        countsByDate[d] = (countsByDate[d] || 0) + 1;
+      }
+
       const weekly: { label: string; value: number }[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
         const dateStr = d.toISOString().split("T")[0];
-        const count = allInstallations.filter(
-          (inst: any) => inst.date && inst.date.split("T")[0] === dateStr,
-        ).length;
         weekly.push({
           label: days[d.getDay()],
-          value: count,
+          value: countsByDate[dateStr] || 0,
         });
       }
       setWeeklyData(weekly);
@@ -327,7 +316,87 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+  // ── Memoized derived data ──
+  const statCards = useMemo(
+    () => [
+      {
+        label: "Total Sites",
+        value: stats.sites,
+        icon: Building2,
+        change: null,
+        changeType: undefined,
+      },
+      {
+        label: "Inventory Items",
+        value: stats.inventory,
+        icon: Package,
+        change:
+          stats.lowStockItems > 0 ? `${stats.lowStockItems} low stock` : null,
+        changeType: "warning" as const,
+      },
+      {
+        label: "Total Installations",
+        value: stats.installations,
+        icon: CalendarCheck,
+        change: `${stats.todayInstallations} today`,
+        changeType: "info" as const,
+      },
+      {
+        label: "Inventory Value",
+        value: `₱${stats.totalValue.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        icon: Wallet,
+        change: null,
+        changeType: undefined,
+      },
+    ],
+    [stats],
+  );
+
+  const statusSegments = useMemo(
+    () => [
+      {
+        label: "Completed",
+        value: stats.completedInstallations,
+        color: "#4f46e5",
+      },
+      {
+        label: "Scheduled",
+        value: stats.scheduledInstallations,
+        color: "#a5b4fc",
+      },
+      {
+        label: "Cancelled",
+        value: stats.cancelledInstallations,
+        color: "#e0e7ff",
+      },
+    ],
+    [stats],
+  );
+
+  // ── Precompute per-item site maps once (avoids rework on every render) ──
+  const inventoryRows = useMemo(
+    () =>
+      inventoryItems.slice(0, 8).map((item: any) => {
+        const totalQty =
+          item.sitesData?.reduce(
+            (sum: number, s: any) => sum + s.quantity,
+            0,
+          ) || 0;
+
+        const siteMap: Record<string, any> = {};
+        item.sitesData?.forEach((s: any) => {
+          siteMap[s.siteId] = s;
+        });
+
+        return { item, totalQty, siteMap };
+      }),
+    [inventoryItems],
+  );
 
   // ── Loading skeleton ──
   if (!mounted) {
@@ -373,68 +442,6 @@ export default function DashboardPage() {
       </MainLayout>
     );
   }
-
-  // ── Stat cards ──
-  const statCards = [
-    {
-      label: "Total Sites",
-      value: stats.sites,
-      icon: Building2,
-      change: null,
-    },
-    {
-      label: "Inventory Items",
-      value: stats.inventory,
-      icon: Package,
-      change:
-        stats.lowStockItems > 0 ? `${stats.lowStockItems} low stock` : null,
-      changeType: "warning" as const,
-    },
-    {
-      label: "Total Installations",
-      value: stats.installations,
-      icon: CalendarCheck,
-      change: `${stats.todayInstallations} today`,
-      changeType: "info" as const,
-    },
-    {
-      label: "Inventory Value",
-      value: `₱${stats.totalValue.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
-      icon: Wallet,
-      change: null,
-    },
-  ];
-
-  const statusSegments = [
-    {
-      label: "Completed",
-      value: stats.completedInstallations,
-      color: "#4f46e5",
-    },
-    {
-      label: "Scheduled",
-      value: stats.scheduledInstallations,
-      color: "#a5b4fc",
-    },
-    {
-      label: "Cancelled",
-      value: stats.cancelledInstallations,
-      color: "#e0e7ff",
-    },
-  ];
-
-  const valueSegments = inventoryItems
-    .slice(0, 5)
-    .map((item: any, i: number) => ({
-      label: item.name,
-      value: Math.round(item.totalValue || 0),
-      color: ["#4f46e5", "#6366f1", "#818cf8", "#a5b4fc", "#c7d2fe"][i],
-    }));
-
-  const hasInventoryValue = valueSegments.some((s) => s.value > 0);
 
   return (
     <MainLayout>
@@ -559,7 +566,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Inventory TABLE (PER SITE) — full width, horizontally scrollable on mobile ── */}
+        {/* ── Inventory TABLE (PER SITE) ── */}
         <div className="bg-white rounded-xl border border-gray-100">
           <div className="px-4 sm:px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -578,12 +585,11 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Hint for mobile scroll */}
           <div className="sm:hidden px-4 pt-2 text-[10px] text-gray-400">
             ← Swipe to see all sites →
           </div>
 
-          <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
+          <div className="overflow-x-auto">
             <table className="w-full min-w-[640px]">
               <thead className="bg-gray-50">
                 <tr>
@@ -610,7 +616,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {inventoryItems.length === 0 ? (
+                {inventoryRows.length === 0 ? (
                   <tr>
                     <td
                       colSpan={sitesList.length + 4}
@@ -620,83 +626,70 @@ export default function DashboardPage() {
                     </td>
                   </tr>
                 ) : (
-                  inventoryItems.slice(0, 8).map((item: any) => {
-                    const totalQty =
-                      item.sitesData?.reduce(
-                        (sum: number, s: any) => sum + s.quantity,
-                        0,
-                      ) || 0;
+                  inventoryRows.map(({ item, totalQty, siteMap }) => (
+                    <tr
+                      key={item._id}
+                      className="border-t border-gray-50 hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="py-3 px-3 sm:px-4 sticky left-0 bg-white z-10">
+                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-[150px]">
+                          {item.name}
+                        </p>
+                        <p className="text-[10px] sm:text-[11px] text-gray-400">
+                          {item.unit}
+                        </p>
+                      </td>
+                      <td className="py-3 px-3 sm:px-4">
+                        <span className="text-[11px] sm:text-xs text-gray-600 whitespace-nowrap">
+                          {item.categoryId?.name || "Uncategorized"}
+                        </span>
+                      </td>
+                      {sitesList.map((site) => {
+                        const sd = siteMap[site._id];
+                        const qty = sd?.quantity || 0;
+                        const minQty = sd?.minQuantity || 0;
+                        const isLow = qty > 0 && qty <= minQty;
 
-                    const siteMap: Record<string, any> = {};
-                    item.sitesData?.forEach((s: any) => {
-                      siteMap[s.siteId] = s;
-                    });
-
-                    return (
-                      <tr
-                        key={item._id}
-                        className="border-t border-gray-50 hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="py-3 px-3 sm:px-4 sticky left-0 bg-white z-10">
-                          <p className="text-xs sm:text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-[150px]">
-                            {item.name}
-                          </p>
-                          <p className="text-[10px] sm:text-[11px] text-gray-400">
-                            {item.unit}
-                          </p>
-                        </td>
-                        <td className="py-3 px-3 sm:px-4">
-                          <span className="text-[11px] sm:text-xs text-gray-600 whitespace-nowrap">
-                            {item.categoryId?.name || "Uncategorized"}
-                          </span>
-                        </td>
-                        {sitesList.map((site) => {
-                          const sd = siteMap[site._id];
-                          const qty = sd?.quantity || 0;
-                          const minQty = sd?.minQuantity || 0;
-                          const isLow = qty > 0 && qty <= minQty;
-
-                          return (
-                            <td
-                              key={site._id}
-                              className="py-3 px-2 sm:px-3 text-center"
+                        return (
+                          <td
+                            key={site._id}
+                            className="py-3 px-2 sm:px-3 text-center"
+                          >
+                            <span
+                              className={`text-xs sm:text-sm font-semibold ${
+                                isLow
+                                  ? "text-amber-600"
+                                  : qty === 0
+                                    ? "text-gray-300"
+                                    : "text-gray-900"
+                              }`}
                             >
-                              <span
-                                className={`text-xs sm:text-sm font-semibold ${
-                                  isLow
-                                    ? "text-amber-600"
-                                    : qty === 0
-                                      ? "text-gray-300"
-                                      : "text-gray-900"
-                                }`}
-                              >
-                                {qty}
-                              </span>
-                              {isLow && (
-                                <div className="text-[9px] sm:text-[10px] text-amber-600 font-medium whitespace-nowrap">
-                                  ⚠ Low
-                                </div>
-                              )}
-                            </td>
-                          );
-                        })}
-                        <td className="py-3 px-3 sm:px-4 text-center">
-                          <span className="text-xs sm:text-sm font-bold text-gray-900 whitespace-nowrap">
-                            {totalQty} {item.unit}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 sm:px-4 text-right">
-                          <span className="text-xs sm:text-sm font-medium text-gray-900 whitespace-nowrap">
-                            ₱
-                            {(item.totalValue || 0).toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
+                              {qty}
+                            </span>
+                            {isLow && (
+                              <div className="text-[9px] sm:text-[10px] text-amber-600 font-medium whitespace-nowrap">
+                                ⚠ Low
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="py-3 px-3 sm:px-4 text-center">
+                        <span className="text-xs sm:text-sm font-bold text-gray-900 whitespace-nowrap">
+                          {totalQty} {item.unit}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 sm:px-4 text-right">
+                        <span className="text-xs sm:text-sm font-medium text-gray-900 whitespace-nowrap">
+                          ₱
+                          {(item.totalValue || 0).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
