@@ -121,4 +121,24 @@ export const inventoryService = {
     });
     return response.data;
   },
+
+  async moveInventory(
+    id: string,
+    fromSiteId: string,
+    toSiteId: string,
+    quantity: number,
+  ): Promise<{
+    success?: boolean;
+    message: string;
+    inventory: Inventory;
+    fromSiteRemaining: number;
+    toSiteNewQuantity: number;
+  }> {
+    const response = await api.post(`/inventory/${id}/move`, {
+      fromSiteId,
+      toSiteId,
+      quantity,
+    });
+    return response.data;
+  },
 };

@@ -277,38 +277,6 @@ export default function Sidebar() {
     </div>
   );
 
-  // Mobile Bottom Navigation
-  const mobileBottomNav = (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg">
-      <div className="flex justify-around items-center h-16 px-2">
-        {menuItems.slice(0, 5).map((item) => {
-          const isActive = isActiveRoute(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-col items-center px-3 py-1 rounded-lg transition-all ${
-                isActive
-                  ? "text-indigo-600"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="text-[10px] mt-0.5">{item.label}</span>
-            </Link>
-          );
-        })}
-        <button
-          onClick={() => setShowLogoutConfirm(true)}
-          className="flex flex-col items-center px-3 py-1 rounded-lg text-gray-400 hover:text-red-600 transition-all"
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5">Logout</span>
-        </button>
-      </div>
-    </div>
-  );
-
   // Logout Modal
   const logoutModal = (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -351,7 +319,6 @@ export default function Sidebar() {
     <>
       {desktopSidebar}
       {mobileSidebar}
-      {mobileBottomNav}
 
       {/* Mobile menu button */}
       {!isMobileOpen && (

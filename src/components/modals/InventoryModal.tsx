@@ -147,7 +147,8 @@ export default function InventoryModal({
         description: "",
       });
 
-      let newCategory = null;
+      // Extract the new category from response
+      let newCategory: any = null;
 
       if (response && response.success) {
         newCategory = response.category || null;
@@ -162,17 +163,21 @@ export default function InventoryModal({
         return;
       }
 
+      // Store in a const so TypeScript keeps the narrowed type
+      const createdCategory = newCategory;
+      const createdCategoryId = createdCategory._id;
+
       setCategories((prevCategories) => {
         const exists = prevCategories.some(
-          (cat) => cat._id === newCategory._id,
+          (cat) => cat._id === createdCategoryId,
         );
         if (exists) return prevCategories;
-        return [...prevCategories, newCategory];
+        return [...prevCategories, createdCategory];
       });
 
       setFormData((prev) => ({
         ...prev,
-        categoryId: newCategory._id,
+        categoryId: createdCategoryId,
       }));
 
       setNewCategoryName("");

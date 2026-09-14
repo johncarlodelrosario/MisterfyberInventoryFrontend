@@ -1,13 +1,13 @@
 {
   "/_not-found": "app/_not-found.js",
   "/categories/page": "app/categories/page.js",
-  "/budget/page": "app/budget/page.js",
-  "/installations/page": "app/installations/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/inventory/page": "app/inventory/page.js",
   "/login/page": "app/login/page.js",
-  "/page": "app/page.js",
-  "/register/page": "app/register/page.js",
+  "/installations/page": "app/installations/page.js",
   "/reports/page": "app/reports/page.js",
+  "/page": "app/page.js",
+  "/budget/page": "app/budget/page.js",
+  "/inventory/page": "app/inventory/page.js",
+  "/register/page": "app/register/page.js",
   "/sites/page": "app/sites/page.js"
 }
